@@ -136,8 +136,7 @@ def run_optimized_portfolio(user_input: str):
 
     lines = ["📊 最佳投資組合建議："]
     for i, sym in enumerate(hist_df.columns):
-        lines.append(f"{sym}: 比重 {optimal_weights[i]*100:.1f}%、金額 ${allocation[i]:.0f}、日報酬 {expected_returns[i]*100:.2f}%、年報酬 {daily_contribution[i]*252*100:.2f}%")
-    lines.append(f"總預估年報酬率：{annualized_return*100:.2f}%")
+        lines.append(f"{sym}: 比重 {optimal_weights[i]*100:.1f}%、金額 ${allocation[i]:.0f}")
     return "\n".join(lines)
 
 @app.route("/callback", methods=['POST'])
