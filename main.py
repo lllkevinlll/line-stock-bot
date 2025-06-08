@@ -59,7 +59,7 @@ def predict_tomorrow_direction(model, symbol, features):
     threshold = thresholds.get(symbol, 0.5)
     result = "漲📈" if pred > threshold else "跌📉"
     confidence = pred * 100 if pred > threshold else (1 - pred) * 100
-    return f"預測 {symbol} 明天會 {result}\n"
+    return f"預測 {symbol} 明天會 {result}"
 
 def run_optimized_portfolio(user_input: str):
     parts = user_input.strip().upper().split()
