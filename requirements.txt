@@ -1,5 +1,8 @@
+tensorflow
+scikit-learn
+scipy
+yfinance
+pandas
+numpy
 flask
 line-bot-sdk
-tensorflow
-yfinance
-scikit-learn
