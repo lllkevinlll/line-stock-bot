@@ -88,13 +88,15 @@ def callback():
 # ====== 處理 LINE 訊息 ======
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    msg = event.message.text.upper()
-    reply = "請輸入股票代號，例如 AAPL、NVDA"
-    for sym in tickers:
-        if sym in msg:
-            reply = predict_tomorrow(sym)
-            break
-    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
+    text = event.message.text.strip().upper()
+    valid_tickers = ['AAPL', 'GOOGL', 'META', 'NVDA']
+
+    if text in valid_tickers:
+        reply = predict_price(text)  # 你自己的預測函數
+    else:
+        reply = "請輸入 AAPL、GOOGL、META 或 NVDA 其中一個股票代碼。"
+
+    line_bot_api.reply_message(event.reply_token, TextSendMessage(reply))
 
 
 if __name__ == "__main__":
