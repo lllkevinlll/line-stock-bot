@@ -8,10 +8,6 @@ from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
 from tensorflow.keras.models import load_model
 from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dropout, Dense
-from tensorflow.keras.callbacks import EarlyStopping
-from sklearn.model_selection import train_test_split
 from scipy.optimize import minimize
 
 app = Flask(__name__)
@@ -19,7 +15,8 @@ app = Flask(__name__)
 line_bot_api = LineBotApi(os.environ['LINE_CHANNEL_ACCESS_TOKEN'])
 handler = WebhookHandler(os.environ['LINE_CHANNEL_SECRET'])
 
-model = load_model("direction_model.h5")
+# === 載入模型 ===
+return_model = load_model("return_model.h5")
 features = ['Close', 'MA_5', 'MA_10', 'RSI', 'MACD_diff', 'Volatility']
 
 thresholds = {
@@ -59,7 +56,7 @@ def predict_tomorrow_direction(model, symbol, features):
     threshold = thresholds.get(symbol, 0.5)
     result = "漲📈" if pred > threshold else "跌📉"
     confidence = pred * 100 if pred > threshold else (1 - pred) * 100
-    return f"預測 {symbol} 明天會 {result}"
+    return f"預測 {symbol} 明天會 {result}\n"
 
 def run_optimized_portfolio(user_input: str):
     parts = user_input.strip().upper().split()
@@ -68,14 +65,12 @@ def run_optimized_portfolio(user_input: str):
 
     tickers = parts[:-1]
     investment_amount = float(parts[-1])
-    today = pd.Timestamp.today()
-    from_date = (today - pd.Timedelta(days=2000)).strftime('%Y-%m-%d')
-    to_date = today.strftime('%Y-%m-%d')
+    features = ['Close', 'MA_5', 'MA_10', 'RSI', 'MACD_diff', 'Volatility']
+    window = 10
 
-    all_X, all_y, all_symbols, all_dates = [], [], [], []
-
+    latest_preds = {}
     for symbol in tickers:
-        df = yf.download(symbol, start=from_date, end=to_date)[['Close']].dropna()
+        df = yf.download(symbol, period="6mo")[['Close']].dropna()
         df['MA_5'] = df['Close'].rolling(window=5).mean()
         df['MA_10'] = df['Close'].rolling(window=10).mean()
         delta = df['Close'].diff()
@@ -91,55 +86,23 @@ def run_optimized_portfolio(user_input: str):
         df['MACD_signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
         df['MACD_diff'] = df['MACD'] - df['MACD_signal']
         df['Volatility'] = df['Close'].pct_change().rolling(window=10).std()
-
-        df['FutureAvg5'] = df['Close'].rolling(window=5).mean().shift(-1)
-        df['FutureReturn'] = (df['FutureAvg5'].values.reshape(-1) > df['Close'].values.reshape(-1)).astype(int)
         df = df.dropna()
 
-        if len(df) < 100:
+        if len(df) < window:
             continue
 
         scaler = MinMaxScaler()
-        df[[f'Scaled_{col}' for col in features]] = scaler.fit_transform(df[features])
-        feature_cols = [f'Scaled_{col}' for col in features]
+        df_scaled = scaler.fit_transform(df[features])
+        X_input = df_scaled[-window:].reshape(1, window, len(features))
+        pred = return_model.predict(X_input)[0][0]
+        latest_preds[symbol] = pred
 
-        for i in range(len(df) - 10):
-            X_slice = df.iloc[i:i+10][feature_cols].values
-            y_val = df.iloc[i+10]['FutureReturn']
-            all_X.append(X_slice)
-            all_y.append(y_val)
-            all_symbols.append(symbol)
+    if not latest_preds:
+        return "❌ 找不到可分析的股票資料，請確認股票代碼是否正確或資料是否足夠"
 
-    if not all_X:
-        return "資料不足，無法分析。"
-
-    X = np.array(all_X).astype(np.float32)
-    y = np.array(all_y).astype(np.float32)
-    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.15, shuffle=False)
-
-    model = Sequential([
-        LSTM(64, return_sequences=True, input_shape=(X.shape[1], X.shape[2])),
-        Dropout(0.2),
-        LSTM(32),
-        Dropout(0.2),
-        Dense(1)
-    ])
-    model.compile(optimizer='adam', loss='mse')
-    model.fit(X_train, y_train, validation_data=(X_val, y_val),
-              epochs=30, batch_size=16,
-              callbacks=[EarlyStopping(patience=5, restore_best_weights=True)],
-              verbose=0)
-
-    y_pred = model.predict(X).flatten()
-    latest_preds = {}
-    for symbol in tickers:
-        for i in reversed(range(len(all_symbols))):
-            if all_symbols[i] == symbol:
-                latest_preds[symbol] = y_pred[i]
-                break
-
+    # 獲取歷史報酬與協方差
     hist_close = {}
-    for sym in tickers:
+    for sym in latest_preds:
         df_hist = yf.download(sym, period='6mo')[['Close']].dropna()
         hist_close[sym] = df_hist.squeeze()
 
@@ -163,8 +126,7 @@ def run_optimized_portfolio(user_input: str):
 
     opt_result = minimize(neg_sharpe_ratio, initial_weights,
                           args=(expected_returns, cov_matrix),
-                          method='SLSQP',
-                          bounds=bounds,
+                          method='SLSQP', bounds=bounds,
                           constraints=constraints)
 
     optimal_weights = opt_result.x
@@ -194,9 +156,12 @@ def handle_message(event):
     upper_text = text.upper()
 
     if upper_text.startswith("最佳化"):
-        response = run_optimized_portfolio(text.replace("最佳化", "", 1).strip())
+        try:
+            response = run_optimized_portfolio(text.replace("最佳化", "", 1).strip())
+        except Exception as e:
+            response = f"❌ 執行錯誤：{str(e)}"
     elif upper_text in thresholds:
-        response = predict_tomorrow_direction(model, upper_text, features)
+        response = predict_tomorrow_direction(return_model, upper_text, features)
     else:
         response = "請輸入：\n- 股票代碼如 AAPL 查詢漲跌\n- 或輸入：最佳化 AAPL META 10000 進行資產配置建議"
 
