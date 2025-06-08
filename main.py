@@ -58,7 +58,7 @@ def predict_tomorrow_direction(model, symbol, features):
     threshold = thresholds.get(symbol, 0.5)
     result = "漲📈" if pred > threshold else "跌📉"
     confidence = pred * 100 if pred > threshold else (1 - pred) * 100
-    return f"預測 {symbol} 明天會 {result}\n信心度：約 {confidence:.2f}%"
+    return f"預測 {symbol} 明天會 {result}\n"
 
 # === Webhook ===
 @app.route("/callback", methods=['POST'])
