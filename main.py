@@ -19,6 +19,14 @@ handler = WebhookHandler(os.environ['LINE_CHANNEL_SECRET'])
 model = load_model("direction_model.h5")
 features = ['Close', 'MA_5', 'MA_10', 'RSI', 'MACD_diff', 'Volatility']
 
+# 股票門檻設定（根據你訓練的結果調整）
+thresholds = {
+    'AAPL': 0.56,
+    'GOOGL': 0.50,
+    'META': 0.65,
+    'NVDA': 0.63
+}
+
 # === 漲跌預測函數 ===
 def predict_tomorrow_direction(model, symbol, features):
     df = yf.download(symbol, period="6mo")[['Close']].dropna()
@@ -47,8 +55,9 @@ def predict_tomorrow_direction(model, symbol, features):
     X_input = df_scaled[-10:].reshape(1, 10, len(features))
 
     pred = model.predict(X_input)[0][0]
-    result = "漲📈" if pred > 0 else "跌📉"
-    confidence = abs(pred) * 100
+    threshold = thresholds.get(symbol, 0.5)
+    result = "漲📈" if pred > threshold else "跌📉"
+    confidence = pred * 100 if pred > threshold else (1 - pred) * 100
     return f"預測 {symbol} 明天會 {result}\n信心度：約 {confidence:.2f}%"
 
 # === Webhook ===
@@ -66,7 +75,7 @@ def callback():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     text = event.message.text.strip().upper()
-    if text in ['AAPL', 'GOOGL', 'META', 'NVDA']:
+    if text in thresholds:
         reply = predict_tomorrow_direction(model, text, features)
     else:
         reply = "請輸入股票代碼，例如 AAPL 或 NVDA。"
