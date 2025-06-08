@@ -93,7 +93,7 @@ def run_optimized_portfolio(user_input: str):
         df['Volatility'] = df['Close'].pct_change().rolling(window=10).std()
 
         df['FutureAvg5'] = df['Close'].rolling(window=5).mean().shift(-1)
-        df['FutureReturn'] = (df['FutureAvg5'] - df['Close']) / df['Close']
+        df['Direction'] = (df['FutureAvg5'].values.reshape(-1) > df['Close'].values.reshape(-1)).astype(int)
         df = df.dropna()
 
         if len(df) < 100:
