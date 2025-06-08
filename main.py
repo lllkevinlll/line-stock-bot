@@ -26,7 +26,7 @@ line_bot_api = LineBotApi(os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))
 handler = WebhookHandler(os.getenv("LINE_CHANNEL_SECRET"))
 
 # ====== 載入模型 ======
-model = load_model("stock_predict_model.h5")
+model = load_model("stock_predict_model.h5", compile=False)
 
 # ====== 設定 ======
 tickers = ['AAPL', 'GOOGL', 'META', 'NVDA']
