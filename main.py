@@ -7,7 +7,6 @@ Original file is located at
     https://colab.research.google.com/drive/1xZEbpHu9902eUONpetCHfcY4-Zp0wWcu
 """
 
-!pip install line-bot-sdk
 
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
