@@ -16,7 +16,7 @@ line_bot_api = LineBotApi(os.environ['LINE_CHANNEL_ACCESS_TOKEN'])
 handler = WebhookHandler(os.environ['LINE_CHANNEL_SECRET'])
 
 # === 載入模型與特徵欄位 ===
-model = load_model("dirction_model.h5")
+model = load_model("direction_model.h5")
 features = ['Close', 'MA_5', 'MA_10', 'RSI', 'MACD_diff', 'Volatility']
 
 # 股票門檻設定（根據你訓練的結果調整）
