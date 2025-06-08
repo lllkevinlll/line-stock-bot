@@ -95,3 +95,8 @@ def handle_message(event):
             reply = predict_tomorrow(sym)
             break
     line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
